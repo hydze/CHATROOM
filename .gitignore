@@ -1,2 +1,5 @@
 # Python VENV
 .venv/
+
+#database file (changes very frequently)
+chat.db

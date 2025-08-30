@@ -7,7 +7,6 @@ import socket
 import threading
 import sqlite3
 import time
-#import tkinter as tk
 from threading import Lock
 import os
 import signal
@@ -23,7 +22,6 @@ clients = []
 usernames_lock = Lock()  # protect access for multi-threadding
 db_lock = Lock()
 clients_lock = Lock()
-
 
 
 def start_server():
@@ -54,10 +52,11 @@ def handle_client(client_socket, addr):
         # check uniqueness
         with usernames_lock:
             if username not in usernames.values():
+                client_socket.send("[SERVER] Username accepted.\n".encode())
                 usernames[client_socket] = username
                 break
             else:
-                client_socket.send("Username already taken, try another.\n".encode())
+                client_socket.send("[SERVER] Username already taken, try another.\n".encode())
     
     # Send last 24h messages
     recent_messages = get_recent_messages()
@@ -70,7 +69,7 @@ def handle_client(client_socket, addr):
     # MAIN RECEIVE LOOP (handler for new messages)
     try:
         while True:
-            client_socket.send("Type your messages below:".encode())
+            #client_socket.send("Type your messages below:".encode())
             msg = client_socket.recv(1024)
             if not msg:
                 break
@@ -91,20 +90,22 @@ def handle_client(client_socket, addr):
         print(f"[DISCONNECT] {addr} disconnected.")
 
 
-#send message to every other connection except source
-def broadcast(message, sender_socket=None):
+# send message to every connection, including the sender
+def broadcast(message, client_socket):
     to_remove = []
     with clients_lock:
         for client in clients:
-            if client != sender_socket:
-                try:
-                    client.send(message.encode())
-                except Exception:
-                    # mark for removal, but don't close here
-                    to_remove.append(client)
+            try:
+                client.send(message.encode())
+            except Exception:
+                # mark client for removal if sending fails
+                to_remove.append(client)
+
+        # remove any clients that failed
         for client in to_remove:
             if client in clients:
                 clients.remove(client)
+
 
 
 def server_commands():
